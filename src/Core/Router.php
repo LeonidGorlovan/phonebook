@@ -24,7 +24,7 @@ class Router
     {
         // Конвертируем маршрут в регулярное выражение
         $route = preg_replace('/\//', '\\/', $route);
-        $route = preg_replace('/\{([a-z]+)\}/', '(?P<\1>[^\/]+)', $route);
+        $route = preg_replace('/\{([a-z]+)}/', '(?P<\1>[^\/]+)', $route);
         $pattern = '/^' . $route . '$/i';
 
         // Сохраняем HTTP-метод в параметрах

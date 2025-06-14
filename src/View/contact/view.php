@@ -1,4 +1,11 @@
-<?php include __DIR__ . '/../layouts/header.php'; ?>
+<?php
+    if (!isset($contact) || !is_array($contact)) {
+        header('Location: /contacts');
+        exit;
+    }
+
+    include __DIR__ . '/../layouts/header.php';
+?>
 
 <div class="container mt-4">
     <div class="row">

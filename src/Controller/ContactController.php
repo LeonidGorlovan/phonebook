@@ -52,11 +52,6 @@ class ContactController
 
         $contact = $this->contactModel->getById($contactId, $userId);
 
-        if (!$contact) {
-            header('Location: /contacts');
-            exit;
-        }
-
         // Add current time and user information
         $currentDateUTC = date('Y-m-d H:i:s');
         $currentUserLogin = $_SESSION['user_login'] ?? 'LeonidGorlovan';

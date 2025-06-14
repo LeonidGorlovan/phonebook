@@ -168,10 +168,12 @@
                             '</tr>';
 
                         // If table was empty, refresh the page to show the table
-                        if ($('#contacts-table-body').length === 0) {
+                        var contactsTableBody = $('#contacts-table-body');
+
+                        if (contactsTableBody.length === 0) {
                             location.reload();
                         } else {
-                            $('#contacts-table-body').prepend(newRow);
+                            contactsTableBody.prepend(newRow);
                         }
                     } else {
                         // Display validation errors
