@@ -1,0 +1,20 @@
+{
+    "name": "leonigor/phonebook",
+    "description": "Phone Book Web Application",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Dev Leoni Gor",
+            "email": "dev.leoni.gor@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "ext-pdo": "*"
+    }
+}
