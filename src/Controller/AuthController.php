@@ -3,25 +3,21 @@
 namespace App\Controller;
 
 use App\Model\User;
-use App\Request\Validator;
 
-class AuthController
+class AuthController extends BaseController
 {
     private User $userModel;
-    private Validator $validator;
 
     public function __construct()
     {
+        parent::__construct();
         $this->userModel = new User();
-        $this->validator = new Validator();
+        $this->validator = $this->getValidator();
     }
 
     public function login(): void
     {
-        if (isset($_SESSION['user_id'])) {
-            header('Location: /contacts');
-            exit;
-        }
+        $this->redirectIfAuthenticated('contacts.index');
 
         $errors = [];
         $currentDateUTC = date('Y-m-d H:i:s');
@@ -46,7 +42,7 @@ class AuthController
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['user_login'] = $user['login'];
 
-                    header('Location: /contacts');
+                    header('Location: ' . url('contacts.index'));
                     exit;
                 } else {
                     $errors['auth'] = 'Invalid login or password';
@@ -61,7 +57,7 @@ class AuthController
     {
         // Redirect if already logged in
         if (isset($_SESSION['user_id'])) {
-            header('Location: /contacts');
+            header('Location: ' . url('home'));
             exit;
         }
 
@@ -105,7 +101,7 @@ class AuthController
             if (empty($errors)) {
                 if ($this->userModel->create($login, $email, $password)) {
                     $_SESSION['register_success'] = true;
-                    header('Location: /auth/login');
+                    header('Location: ' . url('auth.login'));
                     exit;
                 } else {
                     $errors['general'] = 'Error creating account. Please try again.';
@@ -120,7 +116,7 @@ class AuthController
     {
         session_unset();
         session_destroy();
-        header('Location: /auth/login');
+        header('Location: ' . url('auth.login'));
         exit;
     }
 }

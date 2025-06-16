@@ -3,23 +3,21 @@
 namespace App\Controller;
 
 use App\Model\Contact;
-use App\Request\Validator;
+use App\Service\ImageService;
 
-class ContactController
+class ContactController extends BaseController
 {
     private Contact $contactModel;
-    private Validator $validator;
+    private ImageService $imageService;
 
     public function __construct()
     {
-        // Check if user is logged in
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: /auth/login');
-            exit;
-        }
+        parent::__construct();
+        $this->checkAuth();
 
         $this->contactModel = new Contact();
-        $this->validator = new Validator();
+        $this->validator = $this->getValidator();
+        $this->imageService = new ImageService();
     }
 
     /**
@@ -30,9 +28,8 @@ class ContactController
         $userId = $_SESSION['user_id'];
         $contacts = $this->contactModel->getAllByUserId($userId);
 
-        // Add current time and user information
-        $currentDateUTC = date('Y-m-d H:i:s');
-        $currentUserLogin = $_SESSION['user_login'] ?? 'LeonidGorlovan';
+        $currentDateUTC = $this->currentDateUTC;
+        $currentUserLogin = $this->currentUserLogin;
 
         include __DIR__ . '/../View/contact/list.php';
     }
@@ -40,21 +37,19 @@ class ContactController
     /**
      * View a single contact
      */
-    public function view(int $id = 0): void
+    public function show(int $id = 0): void
     {
         $userId = $_SESSION['user_id'];
         $contactId = $id ?: (int)($_GET['id'] ?? 0);
 
         if (!$contactId) {
-            header('Location: /contacts');
-            exit;
+            $this->redirect(url('contacts.index'));
         }
 
         $contact = $this->contactModel->getById($contactId, $userId);
 
-        // Add current time and user information
-        $currentDateUTC = date('Y-m-d H:i:s');
-        $currentUserLogin = $_SESSION['user_login'] ?? 'LeonidGorlovan';
+        $currentDateUTC = $this->currentDateUTC;
+        $currentUserLogin = $this->currentUserLogin;
 
         include __DIR__ . '/../View/contact/view.php';
     }
@@ -66,12 +61,9 @@ class ContactController
     {
         $userId = $_SESSION['user_id'];
         $errors = [];
-        $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
 
-        // Add current time and user information
-        $currentDateUTC = date('Y-m-d H:i:s');
-        $currentUserLogin = $_SESSION['user_login'] ?? 'LeonidGorlovan';
+        $currentDateUTC = $this->currentDateUTC;
+        $currentUserLogin = $this->currentUserLogin;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $firstName = $_POST['first_name'] ?? '';
@@ -79,34 +71,28 @@ class ContactController
             $phone = $_POST['phone'] ?? '';
             $email = $_POST['email'] ?? '';
 
-            // Validate fields
             $this->validator->validateName($firstName, 'first_name');
             $this->validator->validateName($lastName, 'last_name');
             $this->validator->validatePhone($phone);
             $this->validator->validateEmail($email);
-            $this->validator->validateImage($_FILES['image'] ?? null);
+
+            $imageValidation = $this->imageService->validate($_FILES['image'] ?? null);
+            if (!$imageValidation['valid']) {
+                $this->validator->addError('image', $imageValidation['error']);
+            }
 
             $errors = $this->validator->getErrors();
 
             if (empty($errors)) {
                 $imagePath = null;
 
-                // Handle image upload
                 if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-                    $uploadDir = __DIR__ . '/../../public/assets/uploads/';
+                    $uploadResult = $this->imageService->upload($_FILES['image']);
 
-                    if (!is_dir($uploadDir)) {
-                        mkdir($uploadDir, 0755, true);
-                    }
-
-                    $fileExtension = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-                    $fileName = uniqid() . '.' . $fileExtension;
-                    $uploadPath = $uploadDir . $fileName;
-
-                    if (move_uploaded_file($_FILES['image']['tmp_name'], $uploadPath)) {
-                        $imagePath = 'assets/uploads/' . $fileName;
+                    if ($uploadResult['success']) {
+                        $imagePath = $uploadResult['path'];
                     } else {
-                        $errors['image'] = 'Failed to upload image';
+                        $errors['image'] = $uploadResult['error'];
                     }
                 }
 
@@ -123,7 +109,7 @@ class ContactController
                     $newContactId = $this->contactModel->create($contactData);
 
                     if ($newContactId) {
-                        if ($isAjax) {
+                        if ($this->isAjax) {
                             $contact = $this->contactModel->getById($newContactId, $userId);
                             header('Content-Type: application/json');
                             echo json_encode([
@@ -141,7 +127,7 @@ class ContactController
                 }
             }
 
-            if ($isAjax) {
+            if ($this->isAjax) {
                 header('Content-Type: application/json');
                 echo json_encode([
                     'success' => false,
@@ -151,8 +137,164 @@ class ContactController
             }
         }
 
-        // If this is a GET request or validation failed, show the form
         include __DIR__ . '/../View/contact/form.php';
+    }
+
+    /**
+     * Edit a contact
+     */
+    public function edit(): void
+    {
+        $userId = $_SESSION['user_id'];
+        $contactId = (int)($_GET['id'] ?? 0);
+
+        if (!$contactId) {
+            header('Location: ' . url('contacts.index'));
+            exit;
+        }
+
+        $contact = $this->contactModel->getById($contactId, $userId);
+
+        if (!$contact) {
+            header('Location: ' . url('contacts.index'));
+            exit;
+        }
+
+        $_POST = $contact;
+
+        $formTitle = "Edit contact";
+        $formAction = url('contacts', ['id' => $contactId]);
+        $formMethod = "POST";
+        $methodField = '<input type="hidden" name="_method" value="PUT">';
+
+        $currentDateUTC = $this->currentDateUTC;
+        $currentUserLogin = $this->currentUserLogin;
+
+        include __DIR__ . '/../View/contact/form.php';
+    }
+
+    /**
+     * Updates an existing contact
+     */
+    public function update(): void
+    {
+        $userId = $_SESSION['user_id'];
+        $errors = [];
+        $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+
+        // Получаем ID из URL
+        $contactId = $this->getIdFromUrl();
+
+        if (!$contactId) {
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'ID контакта не указан']);
+                exit;
+            } else {
+                header('Location: ' . url('contacts.index'));
+                exit;
+            }
+        }
+
+        $contact = $this->contactModel->getById($contactId, $userId);
+        if (!$contact) {
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Контакт не найден']);
+                exit;
+            } else {
+                header('Location: ' . url('contacts.index'));
+                exit;
+            }
+        }
+
+        $requestMethod = $_SERVER['REQUEST_METHOD'];
+        $putMethod = isset($_POST['_method']) && strtoupper($_POST['_method']) === 'PUT';
+
+        if ($requestMethod === 'POST' && $putMethod) {
+            $this->validator->validateName($_POST['first_name'] ?? '', 'first_name');
+            $this->validator->validateName($_POST['last_name'] ?? '', 'last_name');
+            $this->validator->validatePhone($_POST['phone'] ?? '');
+            $this->validator->validateEmail($_POST['email'] ?? '');
+
+            if (!empty($_FILES['image']['name'])) {
+                $imageValidation = $this->imageService->validate($_FILES['image']);
+                if (!$imageValidation['valid']) {
+                    $this->validator->addError('image', $imageValidation['error']);
+                }
+            }
+
+            $errors = $this->validator->getErrors();
+
+            if (empty($errors)) {
+                $contactData = [
+                    'first_name' => $_POST['first_name'],
+                    'last_name' => $_POST['last_name'],
+                    'phone' => $_POST['phone'],
+                    'email' => $_POST['email'],
+                    'id' => $contactId,
+                    'user_id' => $userId
+                ];
+
+                if (!empty($_FILES['image']['name'])) {
+                    $uploadResult = $this->imageService->upload($_FILES['image']);
+
+                    if ($uploadResult['success']) {
+                        $contactData['image_path'] = $uploadResult['path'];
+
+                        if (!empty($contact['image_path'])) {
+                            $this->imageService->delete($contact['image_path']);
+                        }
+                    } else {
+                        $errors['image'] = $uploadResult['error'];
+                    }
+                }
+
+                if (empty($errors)) {
+                    $success = $this->contactModel->update($contactData);
+
+                    if ($success) {
+                        $updatedContact = $this->contactModel->getById($contactId, $userId);
+
+                        if ($isAjax) {
+                            $this->ajaxSuccess(['contact' => $updatedContact]);
+                        } else {
+                            header('Location: ' . url('contacts.index'));
+                            exit;
+                        }
+                    } else {
+                        $errors['general'] = 'Не удалось обновить контакт';
+                    }
+                }
+            }
+
+            if ($isAjax) {
+                $this->ajaxError($errors);
+            }
+        }
+
+        if (!empty($errors)) {
+            $_POST['id'] = $contactId;
+
+            if (empty($_FILES['image']['name']) && !empty($contact['image_path'])) {
+                $_POST['image_path'] = $contact['image_path'];
+            }
+
+            $formTitle = "Редактировать контакт";
+            $formAction = url('contacts', ['id' => $contactId]);
+            $formMethod = "POST";
+            $methodField = '<input type="hidden" name="_method" value="PUT">';
+
+            $currentDateUTC = $this->currentDateUTC;
+            $currentUserLogin = $this->currentUserLogin;
+
+            include __DIR__ . '/../View/contact/form.php';
+            exit;
+        }
+
+        header('Location: ' .  url('contacts.index'));
+        exit;
     }
 
     /**
@@ -171,9 +313,15 @@ class ContactController
                 echo json_encode(['success' => false, 'message' => 'Invalid contact ID']);
                 exit;
             } else {
-                header('Location: /contacts');
+                header('Location: ' .  url('contacts.index'));
                 exit;
             }
+        }
+
+        $contact = $this->contactModel->getById($contactId, $userId);
+
+        if ($contact && !empty($contact['image_path'])) {
+            $this->imageService->delete($contact['image_path']);
         }
 
         $success = $this->contactModel->delete($contactId, $userId);
@@ -183,7 +331,7 @@ class ContactController
             echo json_encode(['success' => $success]);
             exit;
         } else {
-            header('Location: /contacts');
+            header('Location: ' .  url('contacts.index'));
             exit;
         }
     }

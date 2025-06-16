@@ -37,7 +37,10 @@ class FrontController
                 // Собираем параметры для метода контроллера (исключая controller и action)
                 $params = array_diff_key($route, ['controller' => 1, 'action' => 1, 'method' => 1]);
 
-                call_user_func_array([$controller, $action], $params);
+                // Преобразуем ассоциативный массив в индексированный
+                $parameters = array_values($params);
+
+                call_user_func_array([$controller, $action], $parameters);
 
             } catch (Exception $e) {
                 // Обработка ошибки

@@ -15,7 +15,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="/">Phone Book</a>
+            <a class="navbar-brand" href="<?= url('home') ?>">Phone Book</a>
             
             <?php if (isset($_SESSION['user_id'])): ?>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -25,7 +25,7 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link" href="/contacts">My Contacts</a>
+                            <a class="nav-link" href="<?= url('contacts.index') ?>">My Contacts</a>
                         </li>
                     </ul>
                     
@@ -35,7 +35,7 @@
                                 <?= htmlspecialchars($_SESSION['user_login']) ?>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="/auth/logout">Logout</a></li>
+                                <li><a class="dropdown-item" href="<?= url('auth.logout') ?>">Logout</a></li>
                             </ul>
                         </li>
                     </ul>

@@ -10,7 +10,7 @@
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-12 mb-4">
-            <a href="/contacts" class="btn btn-secondary">
+            <a href="<?= url('contacts.index') ?>" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Back to List
             </a>
         </div>
@@ -87,8 +87,8 @@ $(document).ready(function() {
             var contactId = $(this).data('id');
             
             $.ajax({
-                url: '/contact/delete/id=' + contactId,
-                type: 'GET',
+                url: '<?= url('contacts.delete', ['id' => 'PLACEHOLDER_ID']) ?>'.replace('PLACEHOLDER_ID', contactId),
+                type: 'DELETE',
                 dataType: 'json',
                 success: function(response) {
                     if (response.success) {

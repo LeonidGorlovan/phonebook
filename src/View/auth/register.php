@@ -14,7 +14,7 @@
                             </div>
                         <?php endif; ?>
 
-                        <form method="post" action="/auth/register">
+                        <form method="post" action="<?= url('auth.register.send') ?>">
                             <?= \App\Middleware\CsrfMiddleware::getTokenField() ?>
 
                             <div class="mb-3">
@@ -65,7 +65,7 @@
 
                             <div class="d-flex justify-content-between">
                                 <button type="submit" class="btn btn-primary">Register</button>
-                                <a href="/auth/login" class="btn btn-link">Back to Login</a>
+                                <a href="<?= url('auth.login') ?>" class="btn btn-link">Back to Login</a>
                             </div>
                         </form>
                     </div>

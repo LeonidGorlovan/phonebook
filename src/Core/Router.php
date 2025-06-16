@@ -10,6 +10,15 @@ class Router
     private array $namedRoutes = [];
     private ?string $currentRoute = null;
     private array $currentParams = [];
+    private static ?Router $instance = null;
+
+    public static function getInstance(): Router
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
 
     /**
      * Добавляет маршрут для любого HTTP-метода
@@ -171,13 +180,24 @@ class Router
     private function extractRouteFromPattern(string $pattern): string
     {
         // Удаляем HTTP метод из ключа, если он присутствует
-        if (strpos($pattern, '_') !== false) {
+        if (str_contains($pattern, '_')) {
             $pattern = explode('_', $pattern)[0];
         }
 
-        $route = str_replace('\\/', '/', $pattern);
-        $route = preg_replace('/\/\^|\$\/i/', '', $route);
-        return preg_replace('/\(\?P<([a-z]+)>[^\/]+\)/', '{\1}', $route);
+        // Извлекаем имена параметров из регулярного выражения
+        preg_match_all('/\(\?P<([a-z0-9_]+)>/', $pattern, $matches);
+        $paramNames = $matches[1] ?? [];
+
+        // Удаляем начало и конец регулярного выражения и экранирование слешей
+        $route = preg_replace('/^\/\^|\$\/i$/', '', $pattern);
+        $route = str_replace('\\/', '/', $route);
+
+        // Заменяем каждую именованную группу на {имя}
+        foreach ($paramNames as $name) {
+            $route = preg_replace('/\(\?P<' . $name . '>[^)]+\)/', '{' . $name . '}', $route);
+        }
+
+        return $route;
     }
 
     /**

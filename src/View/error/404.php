@@ -4,7 +4,7 @@
     <div class="alert alert-warning">
         <h3>Page Not Found</h3>
         <p>The page you are looking for does not exist.</p>
-        <p><a href="/">Return to the homepage</a></p>
+        <p><a href="<?= url('home') ?>">Return to the homepage</a></p>
     </div>
 </div>
 

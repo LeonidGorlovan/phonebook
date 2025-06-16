@@ -48,8 +48,12 @@
                                             <td><?= htmlspecialchars($contact['phone']) ?></td>
                                             <td><?= htmlspecialchars($contact['email']) ?></td>
                                             <td>
-                                                <a href="/contacts/<?= $contact['id'] ?>" class="btn btn-sm btn-info">
+
+                                                <a href="<?= url('contacts.show', ['id' => $contact['id']]) ?>" class="btn btn-sm btn-info me-3">
                                                     View
+                                                </a>
+                                                <a href="<?= url('contacts.edit', ['id' => $contact['id']]) ?>" class="btn btn-sm btn-warning me-3">
+                                                    Edit
                                                 </a>
                                                 <button class="btn btn-sm btn-danger delete-contact" data-id="<?= $contact['id'] ?>">
                                                     Delete
@@ -134,7 +138,7 @@
             $('.form-control').removeClass('is-invalid');
 
             $.ajax({
-                url: '/contacts',
+                url: '<?= url('contacts.store') ?>',
                 type: 'POST',
                 data: formData,
                 contentType: false,
@@ -162,7 +166,8 @@
                             '<td>' + contact.phone + '</td>' +
                             '<td>' + contact.email + '</td>' +
                             '<td>' +
-                            '<a href="/contacts/' + contact.id + '" class="btn btn-sm btn-info">View</a> ' +
+                            '<a href="' + '<?= url('contacts.show', ['id' => 'PLACEHOLDER_ID']) ?>'.replace('PLACEHOLDER_ID', contact.id) + '" class="btn btn-sm btn-info me-3">View</a> ' +
+                            '<a href="' + '<?= url('contacts.edit', ['id' => 'PLACEHOLDER_ID']) ?>'.replace('PLACEHOLDER_ID', contact.id) + '" class="btn btn-sm btn-warning me-3">Edit</a> ' +
                             '<button class="btn btn-sm btn-danger delete-contact" data-id="' + contact.id + '">Delete</button>' +
                             '</td>' +
                             '</tr>';
@@ -193,13 +198,124 @@
             });
         });
 
+        // Edit contact
+        $(document).on('click', '.edit-contact', function() {
+            var contactId = $(this).data('id');
+
+            // Очистить предыдущие ошибки и форму
+            $('.invalid-feedback').hide();
+            $('.form-control').removeClass('is-invalid');
+            $('#current_image_container').empty();
+
+            // Получить данные контакта
+            $.ajax({
+                url: '<?= url('contacts.show', ['id' => 'PLACEHOLDER_ID']) ?>'.replace('PLACEHOLDER_ID', contactId) + '?format=json',
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        var contact = response.contact;
+
+                        // Заполнить форму редактирования
+                        $('#edit_contact_id').val(contact.id);
+                        $('#edit_first_name').val(contact.first_name);
+                        $('#edit_last_name').val(contact.last_name);
+                        $('#edit_phone').val(contact.phone);
+                        $('#edit_email').val(contact.email);
+
+                        // Показать текущее изображение, если есть
+                        if (contact.image_path) {
+                            $('#current_image_container').html(
+                                '<div class="mb-2">Current image:</div>' +
+                                '<img src="/' + contact.image_path + '" alt="Current photo" width="100" class="img-thumbnail">'
+                            );
+                        }
+
+                        // Открыть модальное окно
+                        $('#editContactModal').modal('show');
+                    } else {
+                        alert('Failed to load contact data.');
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+
+        // Update contact via AJAX
+        $('#update-contact').click(function() {
+            var formData = new FormData($('#edit-contact-form')[0]);
+            var contactId = $('#edit_contact_id').val();
+
+            // Добавить CSRF токен
+            formData.append('_csrf_token', '<?= \App\Middleware\CsrfMiddleware::getToken() ?>');
+            formData.append('_method', 'PUT'); // Эмулируем PUT запрос
+
+            // Сбросить сообщения об ошибках
+            $('.invalid-feedback').hide();
+            $('.form-control').removeClass('is-invalid');
+
+            $.ajax({
+                url: '<?= url('contacts.update', ['id' => 'PLACEHOLDER_ID']) ?>'.replace('PLACEHOLDER_ID', contactId),
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                dataType: 'json',
+                headers: {
+                    'X-CSRF-TOKEN': '<?= \App\Middleware\CsrfMiddleware::getToken() ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Закрыть модальное окно
+                        $('#editContactModal').modal('hide');
+
+                        // Обновить данные в таблице
+                        var contact = response.contact;
+                        var row = $('#contact-' + contact.id);
+
+                        // Обновить ячейки таблицы
+                        var imagePath = contact.image_path ?
+                            '<img src="/' + contact.image_path + '" alt="Contact photo" class="rounded-circle" width="50" height="50">' :
+                            '<div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">' +
+                            contact.first_name.charAt(0) + contact.last_name.charAt(0) + '</div>';
+
+                        row.find('td:eq(0)').html(imagePath);
+                        row.find('td:eq(1)').text(contact.first_name + ' ' + contact.last_name);
+                        row.find('td:eq(2)').text(contact.phone);
+                        row.find('td:eq(3)').text(contact.email);
+
+                        // Показать уведомление об успешном обновлении
+                        $('<div class="alert alert-success alert-dismissible fade show mt-3" role="alert">' +
+                          'Contact updated successfully!' +
+                          '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+                          '</div>').insertAfter('.card').delay(3000).fadeOut();
+                    } else {
+                        // Показать ошибки валидации
+                        $.each(response.errors, function(field, message) {
+                            $('#edit_' + field).addClass('is-invalid');
+                            $('#edit_' + field + '_error').text(message).show();
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr.status === 403) {
+                        alert('CSRF token validation failed. Please refresh the page and try again.');
+                    } else {
+                        alert('An error occurred. Please try again.');
+                    }
+                }
+            });
+        });
+
         // Delete contact via AJAX
         $(document).on('click', '.delete-contact', function() {
             if (confirm('Are you sure you want to delete this contact?')) {
                 var contactId = $(this).data('id');
 
                 $.ajax({
-                    url: '/contacts/delete/' + contactId,
+                    url: '<?= url('contacts.delete', ['id' => 'PLACEHOLDER_ID']) ?>'.replace('PLACEHOLDER_ID', contactId),
                     type: 'DELETE',
                     dataType: 'json',
                     headers: {

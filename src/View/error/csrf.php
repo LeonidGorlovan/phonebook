@@ -9,7 +9,7 @@
             <li>You navigated using browser back button and resubmitted a form</li>
             <li>Someone might be trying to trick you into submitting a form</li>
         </ul>
-        <p>Please <a href="javascript:history.back()">go back</a> and try again, or <a href="/">return to the homepage</a>.</p>
+        <p>Please <a href="javascript:history.back()">go back</a> and try again, or <a href="<?= url('home') ?>">return to the homepage</a>.</p>
     </div>
 </div>
 

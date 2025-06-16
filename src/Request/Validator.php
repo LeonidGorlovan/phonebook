@@ -113,7 +113,12 @@ class Validator
         
         return true;
     }
-    
+
+    public function addError(string $field, string $message): void
+    {
+        $this->errors[$field] = $message;
+    }
+
     public function getErrors(): array
     {
         return $this->errors;
